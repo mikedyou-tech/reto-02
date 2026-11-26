@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reto 02 — Revisión de Contratos</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; background: #111318; color: #f3f4f6; }
+    .card { background: #1b1f27; border: 1px solid #2e3545; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+    .badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 4px; font-weight: bold; background: #2c3648; }
+    button { padding: 0.5rem 0.9rem; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; margin-right: 0.5rem; }
+    .approve { background: #16a34a; color: white; }
+    .reject { background: #dc2626; color: white; }
+    pre { white-space: pre-wrap; background: #12151b; padding: 0.75rem; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <h1>Buzón de Contratos — Reto 02</h1>
+  <p id="status-msg">Cargando casos...</p>
+  <div id="cases"></div>
+
+  <script>
+    async function loadCases() {
+      const res = await fetch("/api/cases");
+      const data = await res.json();
+      const container = document.getElementById("cases");
+      const statusMsg = document.getElementById("status-msg");
+      if (!data.ok) {
+        statusMsg.textContent = "Error: " + data.error;
+        return;
+      }
+      statusMsg.textContent = "Casos evaluados: " + data.cases.length;
+      container.innerHTML = "";
+
+      for (const item of data.cases) {
+        const div = document.createElement("div");
+        div.className = "card";
+        div.innerHTML = `
+          <div><strong>${item.messageId}</strong> — <span class="badge">${item.decision}</span> (Póliza: ${item.policyStatus})</div>
+          <p><strong>Motivos:</strong> ${item.reasons.join(" ")}</p>
+          ${item.aiSummary ? `<pre>${item.aiSummary}</pre>` : ""}
+          ${item.decision === "confirmacion_humana" ? `
+            <button class="approve" onclick="decide('${item.messageId}', 'nuevo')">Aprobar y registrar</button>
+            <button class="reject" onclick="decide('${item.messageId}', 'rechazado')">Rechazar</button>
+          ` : ""}
+        `;
+        container.appendChild(div);
+      }
+    }
+
+    async function decide(messageId, targetDecision) {
+      const res = await fetch("/api/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageId, targetDecision })
+      });
+      const data = await res.json();
+      document.getElementById("status-msg").textContent = data.message || data.error;
+      await loadCases();
+    }
+
+    loadCases();
+  </script>
+</body>
+</html>
